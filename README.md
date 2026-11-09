@@ -9,7 +9,7 @@ Trình tạo mã QR chạy hoàn toàn trên trình duyệt, không cần máy c
 
 ## Dùng thử
 
-Mở `xuong-ma-qr.html` bằng trình duyệt (cần mạng để tải thư viện từ CDN).
+Mở `xuong-ma-qr.html` bằng trình duyệt. Tệp đã gói sẵn mọi thư viện nên chạy được cả khi không có mạng (chỉ font chữ cần mạng, thiếu mạng sẽ dùng font hệ thống).
 `index.html` là bản dùng cho Claude Artifact (không có thẻ `<html>`/`<head>`).
 
 Thư viện: qr-code-styling, jsQR, JSZip.
