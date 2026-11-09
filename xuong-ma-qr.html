@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>Xưởng Mã QR</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a two-pane workbench — editor (content + design) on the left, a sticky "proof sheet" preview on the right; stacks to one column on phones. */
+:root{
+  --bg:#edf1f2; --surface:#ffffff; --sunk:#f4f7f8; --ink:#11252e; --muted:#5b6d76; --line:#d4dde1;
+  --accent:#0d6b68; --accent-soft:#dbefed; --accent-ink:#ffffff;
+  --ok:#1d7f48; --ok-soft:#e1f3e8; --warn:#9a6410; --warn-soft:#fbf0dc; --bad:#b4342a; --bad-soft:#fbe4e1;
+  --checker:#e6ebed;
+  --font-ui:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1519; --surface:#122128; --sunk:#0e1b21; --ink:#e2ecef; --muted:#8fa3ac; --line:#233841;
+  --accent:#43b7ae; --accent-soft:#16363a; --accent-ink:#06201f;
+  --ok:#5cc98a; --ok-soft:#133224; --warn:#e3b05a; --warn-soft:#352812; --bad:#f08075; --bad-soft:#3a1a17;
+  --checker:#1a2c33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1519; --surface:#122128; --sunk:#0e1b21; --ink:#e2ecef; --muted:#8fa3ac; --line:#233841;
+  --accent:#43b7ae; --accent-soft:#16363a; --accent-ink:#06201f;
+  --ok:#5cc98a; --ok-soft:#133224; --warn:#e3b05a; --warn-soft:#352812; --bad:#f08075; --bad-soft:#3a1a17;
+  --checker:#1a2c33; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+.wrap{max-width:1180px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:22px 14px}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto}
+.mark{width:40px;height:40px;border-radius:9px;background:var(--accent);display:grid;place-items:center}
+.mark svg{width:24px;height:24px}
+.brand h1{font-size:21px;font-weight:800;letter-spacing:-.01em}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.modes{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;flex-wrap:wrap}
+.modes button{border:0;background:none;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.modes button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.modes button .n{font-family:var(--font-mono);font-size:11px;opacity:.8;margin-left:4px}
+
+/* workbench */
+.bench{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;align-items:start}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:0}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h2 .step{font-family:var(--font-mono);background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 6px;font-size:12px;letter-spacing:0}
+
+.types{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-bottom:18px}
+.types button{display:flex;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid var(--line);background:var(--sunk);border-radius:var(--r);padding:10px 11px;cursor:pointer;text-align:left;font-size:13.5px;font-weight:600}
+.types button svg{width:18px;height:18px;stroke:var(--muted)}
+.types button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.types button[aria-pressed="true"] svg{stroke:var(--accent)}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.grid .full{grid-column:1/-1}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld>label,.lbl{font-size:13px;font-weight:600}
+.fld .hint{font-size:12px;color:var(--muted)}
+input[type=text],input[type=url],input[type=email],input[type=tel],input[type=number],input[type=datetime-local],select,textarea{
+  width:100%;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0}
+textarea{resize:vertical;min-height:84px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--accent)}
+
+.raw{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px}
+.raw-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.raw pre{margin:0;font-family:var(--font-mono);font-size:12px;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-all;max-height:140px;overflow:auto}
+.meter{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-family:var(--font-mono)}
+.meter .bar{width:110px;height:6px;border-radius:9px;background:var(--line);overflow:hidden}
+.meter .bar i{display:block;height:100%;background:var(--accent);width:0}
+
+/* design */
+details.sec{border-top:1px solid var(--line)}
+details.sec:first-of-type{border-top:0}
+details.sec>summary{list-style:none;cursor:pointer;padding:13px 0;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"+";font-family:var(--font-mono);color:var(--muted);font-size:18px}
+details.sec[open]>summary::after{content:"–"}
+details.sec>.body{padding-bottom:16px;display:flex;flex-direction:column;gap:14px}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{width:34px;height:34px;border-radius:8px;border:2px solid var(--line);cursor:pointer;padding:0;position:relative;overflow:hidden}
+.swatch[aria-pressed="true"]{border-color:var(--ink)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--sunk);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.seg button svg{width:16px;height:16px}
+.color{display:flex;align-items:center;gap:8px;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:4px 8px 4px 4px}
+.color input[type=color]{width:30px;height:30px;border:0;padding:0;background:none;cursor:pointer;border-radius:6px}
+.color input[type=text]{border:0;background:none;padding:4px;font-family:var(--font-mono);font-size:13px;box-shadow:none}
+.range{display:flex;align-items:center;gap:10px}
+.range input{flex:1;accent-color:var(--accent);min-width:0}
+.range output{font-family:var(--font-mono);font-size:12.5px;min-width:52px;text-align:right;color:var(--muted)}
+.logo-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.logo-prev{width:52px;height:52px;border-radius:8px;border:1px dashed var(--line);display:grid;place-items:center;background:var(--sunk);overflow:hidden;font-size:11px;color:var(--muted)}
+.logo-prev img{width:100%;height:100%;object-fit:contain}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 13px;font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg{width:16px;height:16px}
+.file-btn{position:relative;overflow:hidden}
+.file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* preview */
+.proof{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:flex;flex-direction:column;gap:14px}
+.stage{border-radius:12px;padding:22px;display:grid;place-items:center;aspect-ratio:1/1;max-width:100%;
+  background-color:var(--sunk);background-image:linear-gradient(45deg,var(--checker) 25%,transparent 25%),linear-gradient(-45deg,var(--checker) 25%,transparent 25%),linear-gradient(45deg,transparent 75%,var(--checker) 75%),linear-gradient(-45deg,transparent 75%,var(--checker) 75%);
+  background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}
+.stage img{max-width:100%;max-height:100%;display:block;filter:drop-shadow(0 2px 10px rgba(0,0,0,.08))}
+.spec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.spec div{background:var(--surface);padding:8px 10px;min-width:0}
+.spec dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.spec dd{margin:0;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checks{display:flex;flex-direction:column;gap:6px}
+.pill{display:flex;gap:8px;align-items:flex-start;font-size:13px;border-radius:8px;padding:7px 10px;line-height:1.4}
+.pill b{font-weight:700}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.idle{background:var(--sunk);color:var(--muted)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none;margin-top:6px}
+.dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dl .btn.pri{grid-column:1/-1;padding:11px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* views */
+.view[hidden]{display:none}
+.batch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:14px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--sunk);display:flex;flex-direction:column;gap:6px;min-width:0}
+.tile img{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;border-radius:6px}
+.tile span{font-size:12px;font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.err{border-color:var(--bad)}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:30px 18px;text-align:center;color:var(--muted);background:var(--sunk);cursor:pointer;position:relative}
+.drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop strong{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.decode-out{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;margin-top:18px;align-items:start}
+.decode-out img{width:100%;border-radius:8px;border:1px solid var(--line);background:#fff}
+.hist{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.hcard{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;background:var(--sunk);min-width:0}
+.hcard img{width:64px;height:64px;border-radius:6px;background:#fff;object-fit:contain;flex:none}
+.hcard .meta{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.hcard .meta b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hcard .meta small{color:var(--muted);font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+.muted{color:var(--muted)}
+.mono{font-family:var(--font-mono)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+@media (max-width:900px){
+  .bench{grid-template-columns:minmax(0,1fr)}
+  .proof{position:static}
+  .stage{max-width:420px;width:100%;margin:0 auto}
+  .col{display:contents}
+  #pContent{order:1} #pProof{order:2} #pDesign{order:3}
+  .bench{display:flex;flex-direction:column}
+}
+@media (max-width:520px){
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .decode-out{grid-template-columns:minmax(0,1fr)}
+  .decode-out img{max-width:200px}
+  .brand h1{font-size:19px}
+  .panel{padding:16px}
+  .modes{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .modes button{padding:7px 4px;font-size:13px}
+  .types{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .types button{padding:8px;font-size:12.5px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="var(--accent-ink)" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="var(--accent-ink)" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="var(--accent-ink)" stroke-width="2"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 19h2M19 14h2" stroke="var(--accent-ink)" stroke-width="2"/></svg></div>
+      <div><h1>Xưởng Mã QR</h1><p>Tạo, tùy biến, kiểm tra và đọc mã QR ngay trên trình duyệt</p></div>
+    </div>
+    <nav class="modes" role="tablist" aria-label="Chế độ">
+      <button role="tab" id="m-create" data-view="create" aria-selected="true">Tạo mã</button>
+      <button role="tab" id="m-batch" data-view="batch" aria-selected="false">Hàng loạt</button>
+      <button role="tab" id="m-scan" data-view="scan" aria-selected="false">Đọc mã</button>
+      <button role="tab" id="m-hist" data-view="hist" aria-selected="false">Lịch sử<span class="n" id="histCount"></span></button>
+    </nav>
+  </header>
+
+  <!-- ===== CREATE ===== -->
+  <main class="view" id="v-create">
+    <div class="bench">
+      <div class="col">
+        <section class="panel" id="pContent">
+          <h2><span class="step">1</span>Nội dung</h2>
+          <div class="types" id="types"></div>
+          <form id="form" class="grid" autocomplete="off"></form>
+          <div class="raw">
+            <div class="raw-head">
+              <span class="lbl">Dữ liệu được mã hóa</span>
+              <div class="meter" title="Dung lượng đã dùng so với giới hạn của mức sửa lỗi hiện tại"><span id="bytes">0 byte</span><span class="bar"><i id="bytesBar"></i></span></div>
+            </div>
+            <pre id="raw"></pre>
+          </div>
+        </section>
+
+        <section class="panel" id="pDesign">
+          <h2><span class="step">2</span>Thiết kế</h2>
+          <details class="sec" open>
+            <summary>Mẫu có sẵn</summary>
+            <div class="body"><div class="swatches" id="presets"></div><span class="hint muted" style="font-size:12px">Chọn một mẫu rồi chỉnh tiếp bên dưới.</span></div>
+          </details>
+          <details class="sec" open>
+            <summary>Màu sắc</summary>
+            <div class="body">
+              <div class="grid">
+                <div class="fld"><span class="lbl">Màu mã</span><div class="color"><input type="color" id="fg" value="#11252e"><input type="text" id="fgHex" value="#11252e" maxlength="7" aria-label="Mã màu mã QR"></div></div>
+                <div class="fld"><span class="lbl">Màu nền</span><div class="color"><input type="color" id="bg" value="#ffffff"><input type="text" id="bgHex" value="#ffffff" maxlength="7" aria-label="Mã màu nền"></div></div>
+              </div>
+              <label class="chk"><input type="checkbox" id="transparent"> Nền trong suốt (PNG, SVG)</label>
+              <label class="chk"><input type="checkbox" id="useGrad"> Tô chuyển sắc cho mã</label>
+              <div class="grid" id="gradBox" hidden>
+                <div class="fld"><span class="lbl">Màu thứ hai</span><div class="color"><input type="color" id="fg2" value="#0d6b68"><input type="text" id="fg2Hex" value="#0d6b68" maxlength="7" aria-label="Mã màu thứ hai"></div></div>
+                <div class="fld"><span class="lbl">Kiểu chuyển sắc</span><select id="gradType"><option value="linear">Tuyến tính</option><option value="radial">Tỏa tròn</option></select></div>
+                <div class="fld full"><span class="lbl">Góc xoay</span><div class="range"><input type="range" id="gradRot" min="0" max="360" value="45"><output id="gradRotO">45°</output></div></div>
+              </div>
+              <label class="chk"><input type="checkbox" id="eyeColorOn"> Màu riêng cho 3 ô định vị (mắt mã)</label>
+              <div class="grid" id="eyeBox" hidden>
+                <div class="fld"><span class="lbl">Khung mắt</span><div class="color"><input type="color" id="eyeOuter" value="#0d6b68"><input type="text" id="eyeOuterHex" value="#0d6b68" maxlength="7" aria-label="Màu khung mắt"></div></div>
+                <div class="fld"><span class="lbl">Tâm mắt</span><div class="color"><input type="color" id="eyeInner" value="#11252e"><input type="text" id="eyeInnerHex" value="#11252e" maxlength="7" aria-label="Màu tâm mắt"></div></div>
+              </div>
+            </div>
+          </details>
+          <details class="sec" open>
+            <summary>Hình dạng</summary>
+            <div class="body">
+              <div class="fld"><span class="lbl">Điểm ảnh (mô-đun)</span><div class="seg" id="dotType"></div></div>
+              <div class="fld"><span class="lbl">Khung mắt</span><div class="seg" id="cornerType"></div></div>
+              <div class="fld"><span class="lbl">Tâm mắt</span><div class="seg" id="cornerDotType"></div></div>
+            </div>
+          </details>
+          <details class="sec">
+            <summary>Logo ở giữa</summary>
+            <div class="body">
+              <div class="logo-row">
+                <div class="logo-prev" id="logoPrev">Chưa có</div>
+                <label class="btn sm file-btn">Chọn ảnh logo<input type="file" id="logoFile" accept="image/*"></label>
+                <button class="btn sm" id="logoClear" type="button" hidden>Bỏ logo</button>
+              </div>
+              <div class="fld"><span class="lbl">Kích thước logo</span><div class="range"><input type="range" id="logoSize" min="10" max="50" value="30"><output id="logoSizeO">30%</output></div></div>
+              <div class="fld"><span class="lbl">Khoảng cách quanh logo</span><div class="range"><input type="range" id="logoMargin" min="0" max="20" value="6"><output id="logoMarginO">6 px</output></div></div>
+              <label class="chk"><input type="checkbox" id="logoHide" checked> Xóa điểm ảnh phía sau logo</label>
+              <span class="hint muted" style="font-size:12px">Khi có logo, mức sửa lỗi tự nâng lên H để mã vẫn quét được.</span>
+            </div>
+          </details>
+          <details class="sec">
+            <summary>Khung và nhãn</summary>
+            <div class="body">
+              <div class="fld"><span class="lbl">Kiểu khung</span><div class="seg" id="frameType"></div></div>
+              <div class="grid">
+                <div class="fld"><label for="frameText">Chữ trên nhãn</label><input type="text" id="frameText" value="QUÉT ĐỂ XEM" maxlength="40"></div>
+                <div class="fld"><span class="lbl">Màu khung</span><div class="color"><input type="color" id="frameColor" value="#0d6b68"><input type="text" id="frameColorHex" value="#0d6b68" maxlength="7" aria-label="Màu khung"></div></div>
+              </div>
+            </div>
+          </details>
+          <details class="sec">
+            <summary>Kỹ thuật</summary>
+            <div class="body">
+              <div class="fld"><span class="lbl">Mức sửa lỗi</span><div class="seg" id="ecl"></div><span class="hint">Mức cao chịu được bẩn, xước hoặc logo che, nhưng mã dày đặc hơn.</span></div>
+              <div class="fld"><span class="lbl">Kích thước xuất</span><div class="range"><input type="range" id="size" min="200" max="2000" step="50" value="1000"><output id="sizeO">1000 px</output></div></div>
+              <div class="fld"><span class="lbl">Lề trắng (vùng yên tĩnh)</span><div class="range"><input type="range" id="margin" min="0" max="80" value="24"><output id="marginO">24 px</output></div></div>
+            </div>
+          </details>
+        </section>
+      </div>
+
+      <aside class="col">
+        <section class="panel proof" id="pProof">
+          <h2><span class="step">3</span>Xem trước và tải về</h2>
+          <div class="stage"><img id="preview" alt="Mã QR xem trước"></div>
+          <dl class="spec">
+            <div><dt>Phiên bản</dt><dd id="sVer">–</dd></div>
+            <div><dt>Ma trận</dt><dd id="sMod">–</dd></div>
+            <div><dt>Sửa lỗi</dt><dd id="sEcl">–</dd></div>
+          </dl>
+          <div class="checks" id="checks"></div>
+          <div class="dl">
+            <button class="btn pri" id="dlPng" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Tải PNG</button>
+            <button class="btn" id="dlSvg" type="button">SVG</button>
+            <button class="btn" id="dlJpg" type="button">JPG</button>
+            <button class="btn" id="copyImg" type="button">Sao chép</button>
+          </div>
+          <div class="row">
+            <button class="btn sm" id="copyRaw" type="button">Sao chép nội dung</button>
+            <button class="btn sm" id="saveHist" type="button">Lưu vào lịch sử</button>
+            <button class="btn sm" id="resetAll" type="button">Đặt lại</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- ===== BATCH ===== -->
+  <main class="view" id="v-batch" hidden>
+    <section class="panel">
+      <h2>Tạo nhiều mã cùng lúc</h2>
+      <p class="muted" style="margin:0 0 12px">Mỗi dòng một mã. Muốn đặt tên tệp, viết <span class="mono">tên | nội dung</span>. Toàn bộ mã dùng thiết kế đang chọn ở tab Tạo mã.</p>
+      <div class="fld"><label for="batchIn">Danh sách</label>
+        <textarea id="batchIn" rows="8" class="mono" style="font-size:13px">ban-01 | https://example.com/thuc-don?ban=1
+ban-02 | https://example.com/thuc-don?ban=2
+ban-03 | https://example.com/thuc-don?ban=3
+ban-04 | https://example.com/thuc-don?ban=4
+wifi-sanh | WIFI:T:WPA;S:Sanh-Khach;P:matkhau123;;</textarea></div>
+      <div class="row" style="margin-top:12px;align-items:center">
+        <label class="btn sm file-btn">Nhập từ tệp CSV/TXT<input type="file" id="batchFile" accept=".csv,.txt,text/csv,text/plain"></label>
+        <label class="chk"><input type="checkbox" id="batchLabel"> Dùng tên làm chữ trên nhãn khung</label>
+        <span class="muted" id="batchCount" style="font-size:13px"></span>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn pri" id="batchGo" type="button">Tạo mã</button>
+        <button class="btn" id="batchZip" type="button" disabled>Tải tất cả (ZIP)</button>
+      </div>
+      <div class="batch-grid" id="batchGrid"></div>
+    </section>
+  </main>
+
+  <!-- ===== SCAN ===== -->
+  <main class="view" id="v-scan" hidden>
+    <section class="panel">
+      <h2>Đọc mã QR từ ảnh</h2>
+      <div class="drop" id="drop">
+        <input type="file" id="scanFile" accept="image/*" aria-label="Chọn ảnh chứa mã QR">
+        <strong>Kéo thả ảnh vào đây, bấm để chọn ảnh, hoặc dán ảnh (Ctrl+V)</strong>
+        Ảnh chụp màn hình, ảnh chụp tờ rơi, biển hiệu đều được. Ảnh không rời khỏi máy bạn.
+      </div>
+      <div id="scanOut"></div>
+    </section>
+  </main>
+
+  <!-- ===== HISTORY ===== -->
+  <main class="view" id="v-hist" hidden>
+    <section class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <h2 style="margin:0">Mã đã lưu trên trình duyệt này</h2>
+        <div class="confirm" id="histClearBox"><button class="btn sm" id="histClear" type="button">Xóa toàn bộ</button></div>
+      </div>
+      <div class="hist" id="hist"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+let toastT;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2600)}
+
+/* ---------- Icons ---------- */
+const I={
+ url:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+ text:'<path d="M4 6h16M4 12h16M4 18h10"/>',
+ wifi:'<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1"/>',
+ vcard:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16.5c.7-1.8 2-2.6 3.5-2.6s2.8.8 3.5 2.6M15 10h3M15 13.5h3"/>',
+ bank:'<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
+ email:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+ sms:'<path d="M4 5h16v11H9l-5 4z"/>',
+ phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>',
+ geo:'<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+ event:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'
+};
+const svgI=k=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+
+/* ---------- VietQR (chuẩn EMVCo / NAPAS 247) ---------- */
+const BANKS=[["970436","Vietcombank"],["970415","VietinBank"],["970418","BIDV"],["970405","Agribank"],["970407","Techcombank"],["970422","MB Bank"],["970416","ACB"],["970432","VPBank"],["970423","TPBank"],["970403","Sacombank"],["970437","HDBank"],["970441","VIB"],["970443","SHB"],["970431","Eximbank"],["970426","MSB"],["970448","OCB"],["970440","SeABank"],["970449","LPBank"],["970428","Nam A Bank"],["970409","Bac A Bank"],["970425","ABBANK"],["970433","Vietbank"],["970452","KienlongBank"],["970412","PVcomBank"],["970454","Ban Viet"],["970438","BaoViet Bank"],["970406","DongA Bank"],["970408","GPBank"],["970430","PGBank"],["970400","Saigonbank"],["970419","NCB"],["970427","VietABank"],["546034","CAKE by VPBank"],["546035","Ubank by VPBank"],["963388","Timo"]];
+const noAccent=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").replace(/[^\x20-\x7E]/g,"");
+const tlv=(id,v)=>id+String(v.length).padStart(2,"0")+v;
+function crc16(s){let c=0xFFFF;for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++){c=(c&0x8000)?((c<<1)^0x1021):(c<<1);c&=0xFFFF}}return c.toString(16).toUpperCase().padStart(4,"0")}
+function vietqr(bin,acc,amount,desc){
+  acc=String(acc).replace(/\s/g,"");
+  const amt=String(amount||"").replace(/\D/g,"");
+  const info=tlv("00","A000000727")+tlv("01",tlv("00",bin)+tlv("01",acc))+tlv("02","QRIBFTTA");
+  let s=tlv("00","01")+tlv("01",amt?"12":"11")+tlv("38",info)+tlv("53","704");
+  if(amt) s+=tlv("54",amt);
+  s+=tlv("58","VN");
+  const d=noAccent(desc||"").trim().slice(0,50);
+  if(d) s+=tlv("62",tlv("08",d));
+  s+="6304";
+  return s+crc16(s);
+}
+
+/* ---------- Content types ---------- */
+const wEsc=s=>String(s).replace(/([\\;,:"])/g,"\\$1");
+const vEsc=s=>String(s).replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/([;,])/g,"\\$1");
+const icsDate=v=>v?v.replace(/[-:]/g,"").slice(0,13)+"00":"";
+const TYPES={
+ url:{label:"Liên kết",icon:"url",fields:[
+   {id:"url",label:"Địa chỉ trang web",type:"url",ph:"https://…",full:1,def:"https://vi.wikipedia.org/wiki/Hải_Phòng"},
+   {id:"utm",label:"Gắn nguồn theo dõi (UTM)",type:"check",full:1,hint:"Thêm utm_source=qr để biết bao nhiêu lượt truy cập đến từ mã QR."}],
+   build:v=>{let u=(v.url||"").trim();if(!u)return"";if(!/^[a-z][a-z0-9+.-]*:/i.test(u))u="https://"+u;
+     if(v.utm){try{const x=new URL(u);x.searchParams.set("utm_source","qr");x.searchParams.set("utm_medium","print");u=x.toString()}catch(e){}}return u},
+   check:v=>{const u=(v.url||"").trim();if(!u)return"Nhập địa chỉ trang web.";if(/\s/.test(u))return"Địa chỉ không được chứa dấu cách.";return""}},
+ text:{label:"Văn bản",icon:"text",fields:[{id:"text",label:"Nội dung",type:"textarea",full:1,def:"Xin chào! Tiếng Việt có dấu được mã hóa UTF-8 nên điện thoại hiển thị đúng."}],build:v=>v.text||""},
+ wifi:{label:"Wi‑Fi",icon:"wifi",fields:[
+   {id:"ssid",label:"Tên mạng (SSID)",type:"text",def:"Cafe-Ben-Cang"},
+   {id:"pass",label:"Mật khẩu",type:"text",def:"chaomung2026"},
+   {id:"enc",label:"Bảo mật",type:"select",opts:[["WPA","WPA/WPA2/WPA3"],["WEP","WEP"],["nopass","Không mật khẩu"]]},
+   {id:"hidden",label:"Mạng ẩn",type:"check"}],
+   build:v=>v.ssid?`WIFI:T:${v.enc||"WPA"};S:${wEsc(v.ssid)};${v.enc==="nopass"?"":"P:"+wEsc(v.pass||"")+";"}${v.hidden?"H:true;":""};`:"",
+   check:v=>!v.ssid?"Nhập tên mạng.":(v.enc==="WPA"&&v.pass&&v.pass.length<8?"Mật khẩu WPA phải có ít nhất 8 ký tự.":"")},
+ vcard:{label:"Danh thiếp",icon:"vcard",fields:[
+   {id:"last",label:"Họ",type:"text",def:"Nguyễn"},{id:"first",label:"Tên",type:"text",def:"Minh Anh"},
+   {id:"org",label:"Đơn vị",type:"text"},{id:"title",label:"Chức danh",type:"text"},
+   {id:"tel",label:"Điện thoại",type:"tel",def:"0912 345 678"},{id:"email",label:"Email",type:"email"},
+   {id:"web",label:"Trang web",type:"url"},{id:"addr",label:"Địa chỉ",type:"text"},
+   {id:"note",label:"Ghi chú",type:"text",full:1}],
+   build:v=>{if(!v.first&&!v.last)return"";const L=["BEGIN:VCARD","VERSION:3.0",`N:${vEsc(v.last||"")};${vEsc(v.first||"")};;;`,`FN:${vEsc([v.last,v.first].filter(Boolean).join(" "))}`];
+     if(v.org)L.push("ORG:"+vEsc(v.org));if(v.title)L.push("TITLE:"+vEsc(v.title));if(v.tel)L.push("TEL;TYPE=CELL:"+v.tel.replace(/[^\d+]/g,""));
+     if(v.email)L.push("EMAIL:"+v.email.trim());if(v.web)L.push("URL:"+v.web.trim());if(v.addr)L.push("ADR;TYPE=WORK:;;"+vEsc(v.addr)+";;;;");
+     if(v.note)L.push("NOTE:"+vEsc(v.note));L.push("END:VCARD");return L.join("\n")}},
+ bank:{label:"Chuyển khoản",icon:"bank",fields:[
+   {id:"bin",label:"Ngân hàng",type:"select",opts:BANKS.map(b=>[b[0],b[1]])},
+   {id:"acc",label:"Số tài khoản",type:"text",def:"0123456789"},
+   {id:"amount",label:"Số tiền (đồng, để trống nếu người chuyển tự nhập)",type:"text",def:"150000"},
+   {id:"desc",label:"Nội dung chuyển khoản",type:"text",def:"Thanh toan don hang 1024",hint:"Dấu tiếng Việt được bỏ tự động theo chuẩn NAPAS."},
+   {id:"name",label:"Tên chủ tài khoản (để in trên nhãn)",type:"text",full:1,hint:"Không nằm trong mã; dùng làm chữ trên nhãn khung nếu bạn muốn."}],
+   build:v=>v.acc&&v.bin?vietqr(v.bin,v.acc,v.amount,v.desc):"",
+   check:v=>!v.acc?"Nhập số tài khoản.":(!/^[0-9A-Za-z]{4,19}$/.test(v.acc.replace(/\s/g,""))?"Số tài khoản chỉ gồm chữ số/chữ cái, 4–19 ký tự.":"")},
+ email:{label:"Email",icon:"email",fields:[
+   {id:"to",label:"Gửi đến",type:"email",def:"lienhe@example.com"},{id:"subj",label:"Tiêu đề",type:"text",def:"Đăng ký tham quan"},
+   {id:"body",label:"Nội dung",type:"textarea",full:1}],
+   build:v=>{if(!v.to)return"";const p=[];if(v.subj)p.push("subject="+encodeURIComponent(v.subj));if(v.body)p.push("body="+encodeURIComponent(v.body));return"mailto:"+v.to.trim()+(p.length?"?"+p.join("&"):"")}},
+ sms:{label:"Tin nhắn",icon:"sms",fields:[{id:"num",label:"Số điện thoại",type:"tel",def:"0912345678"},{id:"msg",label:"Nội dung tin",type:"textarea",full:1,def:"DK THAMGIA"}],
+   build:v=>v.num?`SMSTO:${v.num.replace(/[^\d+]/g,"")}:${v.msg||""}`:""},
+ phone:{label:"Gọi điện",icon:"phone",fields:[{id:"num",label:"Số điện thoại",type:"tel",def:"1900 1234",full:1}],build:v=>v.num?"tel:"+v.num.replace(/[^\d+]/g,""):""},
+ geo:{label:"Vị trí",icon:"geo",fields:[
+   {id:"lat",label:"Vĩ độ",type:"text",def:"20.8449"},{id:"lng",label:"Kinh độ",type:"text",def:"106.6881"},
+   {id:"q",label:"Hoặc tìm theo địa chỉ",type:"text",full:1,hint:"Nếu điền địa chỉ, mã sẽ mở Google Maps tìm địa chỉ này thay cho tọa độ."},
+   {id:"fmt",label:"Định dạng",type:"select",full:1,opts:[["maps","Liên kết Google Maps (mọi điện thoại)"],["geo","geo: (ứng dụng bản đồ mặc định)"]]}],
+   build:v=>{if(v.q)return"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(v.q);if(!v.lat||!v.lng)return"";
+     const a=v.lat.trim(),b=v.lng.trim();return v.fmt==="geo"?`geo:${a},${b}`:`https://www.google.com/maps?q=${a},${b}`},
+   check:v=>{if(v.q)return"";const a=+v.lat,b=+v.lng;if(isNaN(a)||a<-90||a>90)return"Vĩ độ phải nằm trong khoảng −90 đến 90.";if(isNaN(b)||b<-180||b>180)return"Kinh độ phải nằm trong khoảng −180 đến 180.";return""}},
+ event:{label:"Sự kiện",icon:"event",fields:[
+   {id:"sum",label:"Tên sự kiện",type:"text",full:1,def:"Hội thảo chuyển đổi số"},
+   {id:"start",label:"Bắt đầu",type:"datetime-local",def:"2026-12-05T08:30"},{id:"end",label:"Kết thúc",type:"datetime-local",def:"2026-12-05T11:30"},
+   {id:"loc",label:"Địa điểm",type:"text",full:1,def:"Hội trường A"},{id:"desc",label:"Mô tả",type:"textarea",full:1}],
+   build:v=>{if(!v.sum)return"";const L=["BEGIN:VEVENT","SUMMARY:"+vEsc(v.sum)];if(v.start)L.push("DTSTART:"+icsDate(v.start));if(v.end)L.push("DTEND:"+icsDate(v.end));
+     if(v.loc)L.push("LOCATION:"+vEsc(v.loc));if(v.desc)L.push("DESCRIPTION:"+vEsc(v.desc));L.push("END:VEVENT");return L.join("\n")},
+   check:v=>v.start&&v.end&&v.end<v.start?"Thời gian kết thúc đang sớm hơn lúc bắt đầu.":""}
+};
+
+/* ---------- Design options ---------- */
+const DOTS=[["square","Vuông"],["rounded","Bo góc"],["extra-rounded","Bo tròn"],["dots","Chấm tròn"],["classy","Cánh lá"],["classy-rounded","Cánh lá mềm"]];
+const CORNERS=[["square","Vuông"],["extra-rounded","Bo tròn"],["dot","Tròn"]];
+const CDOTS=[["square","Vuông"],["dot","Tròn"]];
+const FRAMES=[["none","Không khung"],["below","Chữ bên dưới"],["band","Khung + nhãn dưới"],["top","Khung + nhãn trên"]];
+const ECLS=[["L","L · 7%"],["M","M · 15%"],["Q","Q · 25%"],["H","H · 30%"]];
+const CAP={L:2953,M:2331,Q:1663,H:1273};
+const PRESETS=[
+ {n:"Mực than",fg:"#11252e",bg:"#ffffff",dot:"square",corner:"square",cdot:"square",frame:"#11252e"},
+ {n:"Cảng biển",fg:"#0d4f6b",bg:"#ffffff",grad:"#0d8f86",dot:"rounded",corner:"extra-rounded",cdot:"dot",frame:"#0d6b68"},
+ {n:"Hoa phượng",fg:"#b3261e",bg:"#fffaf6",grad:"#e2582d",dot:"classy-rounded",corner:"extra-rounded",cdot:"dot",frame:"#b3261e"},
+ {n:"Lá non",fg:"#24613a",bg:"#f6fbf3",dot:"dots",corner:"extra-rounded",cdot:"dot",frame:"#24613a"},
+ {n:"Hoàng hôn",fg:"#5b2a86",bg:"#ffffff",grad:"#d9486b",dot:"extra-rounded",corner:"dot",cdot:"dot",frame:"#5b2a86"},
+ {n:"Đêm",fg:"#0b1a24",bg:"#f3d27a",dot:"classy",corner:"square",cdot:"square",frame:"#0b1a24"},
+ {n:"Ngân hàng",fg:"#0a3d91",bg:"#ffffff",dot:"rounded",corner:"extra-rounded",cdot:"square",frame:"#0a3d91",eye:"#d4261c"}
+];
+
+const DEFAULT={type:"url",values:{},fg:"#11252e",bg:"#ffffff",transparent:false,useGrad:false,fg2:"#0d6b68",gradType:"linear",gradRot:45,
+  eyeOn:false,eyeOuter:"#0d6b68",eyeInner:"#11252e",dot:"rounded",corner:"extra-rounded",cdot:"dot",
+  logo:null,logoSize:30,logoMargin:6,logoHide:true,frame:"band",frameText:"QUÉT ĐỂ XEM",frameColor:"#0d6b68",ecl:"M",size:1000,margin:24};
+let S=Object.assign(structuredClone(DEFAULT),store.get("qrs.draft",{}));
+if(!TYPES[S.type])S.type="url";
+
+/* ---------- Build content UI ---------- */
+function renderTypes(){
+  $("#types").innerHTML=Object.entries(TYPES).map(([k,t])=>`<button type="button" data-t="${k}" aria-pressed="${k===S.type}">${svgI(t.icon)}${t.label}</button>`).join("");
+  $$("#types button").forEach(b=>b.onclick=()=>{S.type=b.dataset.t;renderTypes();renderForm();update()});
+}
+function val(k,f){const vs=(S.values[k]||{});return vs[f.id]!==undefined?vs[f.id]:(f.def!==undefined?f.def:(f.type==="select"?f.opts[0][0]:(f.type==="check"?false:"")))}
+function renderForm(){
+  const t=TYPES[S.type];
+  $("#form").innerHTML=t.fields.map(f=>{
+    const id=`f-${S.type}-${f.id}`,v=val(S.type,f),cls=f.full?"fld full":"fld",hint=f.hint?`<span class="hint">${esc(f.hint)}</span>`:"";
+    if(f.type==="check")return`<div class="${cls}"><label class="chk"><input type="checkbox" id="${id}" data-f="${f.id}" ${v?"checked":""}> ${esc(f.label)}</label>${hint}</div>`;
+    if(f.type==="select")return`<div class="${cls}"><label for="${id}">${esc(f.label)}</label><select id="${id}" data-f="${f.id}">${f.opts.map(o=>`<option value="${esc(o[0])}" ${o[0]===v?"selected":""}>${esc(o[1])}</option>`).join("")}</select>${hint}</div>`;
+    if(f.type==="textarea")return`<div class="${cls}"><label for="${id}">${esc(f.label)}</label><textarea id="${id}" data-f="${f.id}">${esc(v)}</textarea>${hint}</div>`;
+    return`<div class="${cls}"><label for="${id}">${esc(f.label)}</label><input type="${f.type}" id="${id}" data-f="${f.id}" value="${esc(v)}" placeholder="${esc(f.ph||"")}">${hint}</div>`;
+  }).join("")+`<div class="full" id="formErr"></div>`;
+  $$("#form [data-f]").forEach(el=>el.addEventListener(el.type==="checkbox"||el.tagName==="SELECT"?"change":"input",()=>{
+    S.values[S.type]=S.values[S.type]||{};S.values[S.type][el.dataset.f]=el.type==="checkbox"?el.checked:el.value;update()}));
+}
+function currentValues(){const t=TYPES[S.type],o={};t.fields.forEach(f=>o[f.id]=val(S.type,f));return o}
+function payload(){return TYPES[S.type].build(currentValues())}
+
+/* ---------- Design UI ---------- */
+function seg(el,list,key,cb){
+  const box=$(el);box.innerHTML=list.map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${S[key]===v}">${l}</button>`).join("");
+  box.querySelectorAll("button").forEach(b=>b.onclick=()=>{S[key]=b.dataset.v;box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));cb&&cb();update()});
+}
+function bindColor(id,key){
+  const c=$("#"+id),h=$("#"+id+"Hex");
+  c.value=S[key];h.value=S[key];
+  c.oninput=()=>{S[key]=c.value;h.value=c.value;update()};
+  h.oninput=()=>{if(/^#[0-9a-f]{6}$/i.test(h.value)){S[key]=h.value.toLowerCase();c.value=S[key];update()}};
+}
+function bindRange(id,key,fmt){const r=$("#"+id),o=$("#"+id+"O");r.value=S[key];o.textContent=fmt(S[key]);r.oninput=()=>{S[key]=+r.value;o.textContent=fmt(S[key]);update()}}
+function bindCheck(id,key,box){const c=$("#"+id);c.checked=S[key];if(box)$(box).hidden=!S[key];c.onchange=()=>{S[key]=c.checked;if(box)$(box).hidden=!c.checked;update()}}
+function syncDesign(){
+  ["fg","bg","fg2","eyeOuter","eyeInner","frameColor"].forEach(k=>bindColor(k,k));
+  bindCheck("transparent","transparent");bindCheck("useGrad","useGrad","#gradBox");bindCheck("eyeColorOn","eyeOn","#eyeBox");bindCheck("logoHide","logoHide");
+  $("#gradType").value=S.gradType;$("#gradType").onchange=e=>{S.gradType=e.target.value;update()};
+  bindRange("gradRot","gradRot",v=>v+"°");bindRange("logoSize","logoSize",v=>v+"%");bindRange("logoMargin","logoMargin",v=>v+" px");
+  bindRange("size","size",v=>v+" px");bindRange("margin","margin",v=>v+" px");
+  seg("#dotType",DOTS,"dot");seg("#cornerType",CORNERS,"corner");seg("#cornerDotType",CDOTS,"cdot");
+  seg("#frameType",FRAMES,"frame");seg("#ecl",ECLS,"ecl");
+  $("#frameText").value=S.frameText;$("#frameText").oninput=e=>{S.frameText=e.target.value;update()};
+  renderLogo();
+  $("#presets").innerHTML=PRESETS.map((p,i)=>`<button type="button" class="swatch" data-i="${i}" title="${p.n}" aria-label="Mẫu ${p.n}" style="background:${p.bg}"><span style="position:absolute;inset:7px;border-radius:${p.dot==="square"?"2px":"50%"};background:${p.grad?`linear-gradient(135deg,${p.fg},${p.grad})`:p.fg}"></span></button>`).join("");
+  $$("#presets .swatch").forEach(b=>b.onclick=()=>{const p=PRESETS[b.dataset.i];
+    Object.assign(S,{fg:p.fg,bg:p.bg,useGrad:!!p.grad,fg2:p.grad||S.fg2,dot:p.dot,corner:p.corner,cdot:p.cdot,frameColor:p.frame,eyeOn:!!p.eye,eyeOuter:p.eye||p.fg,eyeInner:p.fg,transparent:false});
+    syncDesign();update();$$("#presets .swatch").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+}
+function renderLogo(){
+  const p=$("#logoPrev");p.innerHTML=S.logo?`<img src="${S.logo}" alt="Logo">`:"Chưa có";$("#logoClear").hidden=!S.logo;
+}
+$("#logoFile").onchange=e=>{const f=e.target.files[0];if(!f)return;
+  if(f.size>3e6){toast("Ảnh logo quá lớn, hãy chọn ảnh dưới 3 MB.");return}
+  const fr=new FileReader();fr.onload=()=>{shrinkImage(fr.result,400).then(d=>{S.logo=d;renderLogo();update()})};fr.readAsDataURL(f);e.target.value=""};
+$("#logoClear").onclick=()=>{S.logo=null;renderLogo();update()};
+function shrinkImage(src,max){return new Promise(res=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));
+  if(k===1&&/^data:image\/(png|svg)/.test(src)){res(src);return}
+  const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/png"))};im.onerror=()=>res(src);im.src=src})}
+
+/* ---------- Rendering ---------- */
+const hasLib=()=>typeof window.QRCodeStyling==="function";
+function effEcl(st){return st.logo&&st.ecl!=="H"?"H":st.ecl}
+function qrOptions(st,data,size,type){
+  const fill=st.useGrad?{gradient:{type:st.gradType,rotation:st.gradRot*Math.PI/180,colorStops:[{offset:0,color:st.fg},{offset:1,color:st.fg2}]}}:{color:st.fg};
+  const o={width:size,height:size,type:type,data:/[^\x00-\x7F]/.test(data)?unescape(encodeURIComponent(data)):data,margin:Math.round(st.margin*size/1000),
+    qrOptions:{errorCorrectionLevel:effEcl(st)},
+    dotsOptions:Object.assign({type:st.dot},fill),
+    backgroundOptions:{color:st.transparent?"rgba(0,0,0,0)":st.bg},
+    cornersSquareOptions:Object.assign({type:st.corner},st.eyeOn?{color:st.eyeOuter}:fill),
+    cornersDotOptions:Object.assign({type:st.cdot},st.eyeOn?{color:st.eyeInner}:fill),
+    imageOptions:{hideBackgroundDots:st.logoHide,imageSize:st.logoSize/100,margin:Math.round(st.logoMargin*size/1000),crossOrigin:"anonymous"}};
+  if(st.logo)o.image=st.logo;
+  return o;
+}
+function frameGeom(st,S0){
+  if(st.frame==="none")return{W:S0,H:S0,qx:0,qy:0};
+  const pad=Math.round(S0*0.06),band=Math.round(S0*0.16);
+  if(st.frame==="below")return{W:S0,H:S0+band,qx:0,qy:0,pad,band};
+  if(st.frame==="band")return{W:S0+pad*2,H:S0+pad*2+band,qx:pad,qy:pad,pad,band};
+  return{W:S0+pad*2,H:S0+pad*2+band,qx:pad,qy:pad+band,pad,band};
+}
+function textColorOn(hex){return lum(hex)>0.45?"#11252e":"#ffffff"}
+function fitFont(ctx,text,maxW,startPx){let px=startPx;do{ctx.font=`800 ${px}px "Be Vietnam Pro", system-ui, sans-serif`;if(ctx.measureText(text).width<=maxW)break;px-=2}while(px>10);return px}
+async function renderBlob(st,data,format,labelOverride){
+  const size=st.size;
+  const qr=new QRCodeStyling(qrOptions(st,data,size,format==="svg"?"svg":"canvas"));
+  const label=(labelOverride!=null?labelOverride:st.frameText)||"";
+  const meta={modules:qr._qr&&qr._qr.getModuleCount?qr._qr.getModuleCount():null};
+  if(format==="svg"){
+    const blob=await qr.getRawData("svg");let svg=await blob.text();
+    if(st.frame==="none")return{blob:new Blob([svg],{type:"image/svg+xml"}),meta};
+    const g=frameGeom(st,size),fc=st.frameColor,bgc=st.transparent?"none":st.bg;
+    const b64=btoa(unescape(encodeURIComponent(svg)));
+    const r=Math.round(size*0.04);let body="";
+    const fs=Math.round(g.band*0.42);
+    const tAttr=`font-family="Be Vietnam Pro, Arial, sans-serif" font-weight="800" font-size="${fs}" text-anchor="middle" dominant-baseline="central" textLength="${Math.min(g.W*0.86,label.length*fs*0.62)}" lengthAdjust="spacingAndGlyphs"`;
+    if(st.frame==="below"){body=`<rect width="${g.W}" height="${g.H}" fill="${bgc}"/><image href="data:image/svg+xml;base64,${b64}" x="0" y="0" width="${size}" height="${size}"/><text x="${g.W/2}" y="${size+g.band*0.42}" fill="${fc}" ${tAttr}>${esc(label)}</text>`}
+    else{const top=st.frame==="top";const by=top?0:g.H-g.band-g.pad*0.4;
+      body=`<rect x="0" y="0" width="${g.W}" height="${g.H}" rx="${r}" fill="${fc}"/><rect x="${g.qx}" y="${g.qy}" width="${size}" height="${size}" rx="${r*0.6}" fill="${st.transparent?"#ffffff":st.bg}"/><image href="data:image/svg+xml;base64,${b64}" x="${g.qx}" y="${g.qy}" width="${size}" height="${size}"/><text x="${g.W/2}" y="${top?g.pad+g.band*0.45:size+g.pad*2+g.band*0.42}" fill="${textColorOn(fc)}" ${tAttr}>${esc(label)}</text>`}
+    const out=`<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${g.W}" height="${g.H}" viewBox="0 0 ${g.W} ${g.H}">${body}</svg>`;
+    return{blob:new Blob([out],{type:"image/svg+xml"}),meta};
+  }
+  const raw=await qr.getRawData("png");
+  const img=await blobToImage(raw);
+  const g=frameGeom(st,size);
+  const c=document.createElement("canvas");c.width=g.W;c.height=g.H;const ctx=c.getContext("2d");
+  const opaque=format==="jpeg";
+  if(opaque){ctx.fillStyle=st.transparent?"#ffffff":st.bg;ctx.fillRect(0,0,g.W,g.H)}
+  if(st.frame==="none"){ctx.drawImage(img,0,0)}
+  else{
+    try{await document.fonts.load('800 40px "Be Vietnam Pro"')}catch(e){}
+    const fc=st.frameColor,r=Math.round(size*0.04);
+    if(st.frame==="below"){
+      if(!st.transparent||opaque){ctx.fillStyle=st.transparent?"#ffffff":st.bg;ctx.fillRect(0,0,g.W,g.H)}
+      ctx.drawImage(img,0,0);
+      ctx.fillStyle=fc;ctx.textAlign="center";ctx.textBaseline="middle";fitFont(ctx,label,g.W*0.86,Math.round(g.band*0.46));ctx.fillText(label,g.W/2,size+g.band*0.42);
+    }else{
+      const top=st.frame==="top";
+      ctx.fillStyle=fc;rrect(ctx,0,0,g.W,g.H,r);ctx.fill();
+      ctx.fillStyle=st.transparent?"#ffffff":st.bg;rrect(ctx,g.qx,g.qy,size,size,r*0.6);ctx.fill();
+      ctx.drawImage(img,g.qx,g.qy);
+      ctx.fillStyle=textColorOn(fc);ctx.textAlign="center";ctx.textBaseline="middle";fitFont(ctx,label,g.W*0.86,Math.round(g.band*0.46));
+      ctx.fillText(label,g.W/2,top?g.pad+g.band*0.45:size+g.pad*2+g.band*0.42);
+    }
+  }
+  const blob=await new Promise(r=>c.toBlob(r,opaque?"image/jpeg":"image/png",0.95));
+  return{blob,meta,canvas:c};
+}
+function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function blobToImage(b){return new Promise((res,rej)=>{const u=URL.createObjectURL(b),im=new Image();im.onload=()=>{res(im);setTimeout(()=>URL.revokeObjectURL(u),1000)};im.onerror=rej;im.src=u})}
+
+/* ---------- Colour & scan checks ---------- */
+function lum(hex){const n=parseInt(hex.slice(1),16),c=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]}
+function contrast(a,b){const x=lum(a),y=lum(b);return(Math.max(x,y)+0.05)/(Math.min(x,y)+0.05)}
+function utf8Len(s){return new TextEncoder().encode(s).length}
+function decodeCanvas(c){
+  if(typeof jsQR!=="function")return null;
+  const k=Math.min(1,700/Math.max(c.width,c.height));const t=document.createElement("canvas");t.width=Math.round(c.width*k);t.height=Math.round(c.height*k);
+  const x=t.getContext("2d");x.fillStyle="#ffffff";x.fillRect(0,0,t.width,t.height);x.drawImage(c,0,0,t.width,t.height);
+  const d=x.getImageData(0,0,t.width,t.height);return jsQR(d.data,t.width,t.height,{inversionAttempts:"attemptBoth"});
+}
+
+/* ---------- Update loop ---------- */
+let lastBlob=null,lastUrl=null,timer=null,seq=0;
+function update(){
+  store.set("qrs.draft",S);
+  const data=payload();
+  $("#raw").textContent=data||"—";
+  const n=utf8Len(data),cap=CAP[effEcl(S)];
+  $("#bytes").textContent=`${n} / ${cap} byte`;$("#bytesBar").style.width=Math.min(100,n/cap*100)+"%";
+  $("#bytesBar").style.background=n>cap?"var(--bad)":n>cap*0.6?"var(--warn)":"var(--accent)";
+  const err=TYPES[S.type].check?TYPES[S.type].check(currentValues()):"";
+  $("#formErr").innerHTML=err?`<div class="pill warn"><span class="dot"></span><span>${esc(err)}</span></div>`:"";
+  clearTimeout(timer);timer=setTimeout(()=>draw(data,n,cap),140);
+}
+async function draw(data,n,cap){
+  const my=++seq;const checks=[];
+  if(!hasLib()){setChecks([{k:"bad",t:"<b>Không tải được thư viện tạo mã.</b> Kiểm tra kết nối mạng rồi tải lại trang."}]);return}
+  if(!data){setChecks([{k:"idle",t:"Điền nội dung ở bước 1 để tạo mã."}]);$("#preview").removeAttribute("src");lastBlob=null;setDl(false);["#sVer","#sMod","#sEcl"].forEach(s=>$(s).textContent="–");return}
+  if(n>cap){setChecks([{k:"bad",t:`<b>Nội dung quá dài.</b> Mức sửa lỗi ${effEcl(S)} chứa tối đa ${cap} byte; hãy rút gọn hoặc chọn mức thấp hơn.`}]);setDl(false);return}
+  let out;
+  try{out=await renderBlob(Object.assign({},S,{size:Math.min(S.size,800)}),data,"png")}catch(e){setChecks([{k:"bad",t:"<b>Không tạo được mã.</b> "+esc(e.message||e)}]);return}
+  if(my!==seq)return;
+  lastBlob=out.blob;if(lastUrl)URL.revokeObjectURL(lastUrl);lastUrl=URL.createObjectURL(out.blob);$("#preview").src=lastUrl;setDl(true);
+  const m=out.meta.modules;$("#sVer").textContent=m?String((m-17)/4):"?";$("#sMod").textContent=m?`${m}×${m}`:"?";
+  $("#sEcl").textContent=effEcl(S)+(S.logo&&S.ecl!=="H"?" (tự động)":"");
+  // automatic scan test
+  const res=decodeCanvas(out.canvas);
+  if(res&&res.data===data)checks.push({k:"ok",t:"<b>Đã thử quét: đọc được.</b> Nội dung khớp với dữ liệu nhập."});
+  else if(res)checks.push({k:"warn",t:"<b>Đọc được nhưng nội dung khác.</b> Kiểm tra lại ký tự đặc biệt."});
+  else checks.push({k:"bad",t:"<b>Thử quét không thành công.</b> Hãy tăng độ tương phản, thu nhỏ logo hoặc chọn kiểu điểm ảnh đơn giản hơn."});
+  const fgs=S.useGrad?[S.fg,S.fg2]:[S.fg];const bgc=S.transparent?"#ffffff":S.bg;
+  const cr=Math.min(...fgs.map(f=>contrast(f,bgc)));
+  if(cr<3)checks.push({k:"bad",t:`<b>Tương phản thấp (${cr.toFixed(1)}:1).</b> Nên đạt từ 4:1 trở lên để máy quét cũ đọc được.`});
+  else if(cr<4)checks.push({k:"warn",t:`<b>Tương phản vừa đủ (${cr.toFixed(1)}:1).</b> In ra giấy có thể khó quét hơn trên màn hình.`});
+  if(fgs.some(f=>lum(f)>lum(bgc)))checks.push({k:"warn",t:"<b>Mã sáng trên nền tối.</b> Một số ứng dụng quét không đọc được mã đảo màu."});
+  if(S.margin<8)checks.push({k:"warn",t:"<b>Lề trắng hẹp.</b> Để lại lề khi đặt mã cạnh hình ảnh khác."});
+  if(S.transparent)checks.push({k:"idle",t:"Nền trong suốt: hãy đặt mã lên nền sáng, đồng màu."});
+  if(m){const mm=Math.ceil(m*0.8);checks.push({k:"idle",t:`Khi in, nên để mỗi cạnh mã từ <b>${Math.max(20,mm)} mm</b> trở lên (khoảng 10 lần khoảng cách quét: 25 cm → 2,5 cm).`})}
+  setChecks(checks);
+}
+function setChecks(a){$("#checks").innerHTML=a.map(c=>`<div class="pill ${c.k}"><span class="dot"></span><span>${c.t}</span></div>`).join("")}
+function setDl(on){["#dlPng","#dlSvg","#dlJpg","#copyImg","#saveHist"].forEach(s=>$(s).disabled=!on)}
+
+/* ---------- Saving files ---------- */
+let dlCap;const dlReady=(window.claude&&window.claude.use)?window.claude.use("downloads").then(d=>dlCap=d).catch(()=>null):Promise.resolve(null);
+async function saveFile(name,blob){
+  await dlReady;
+  if(dlCap){try{await dlCap.save({filename:name,data:blob});toast("Đã lưu "+name);}catch(e){if(e&&e.code==="declined")return;toast("Không lưu được tệp: "+(e&&e.message||"lỗi không rõ"))}return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast("Đã tải "+name);
+}
+function fileBase(){const d=payload();const t=TYPES[S.type].label;let b=noAccent(t).toLowerCase().replace(/\s+/g,"-");
+  if(S.type==="url"){try{b="qr-"+new URL(d).hostname.replace(/^www\./,"")}catch(e){}}else b="qr-"+b;return b.replace(/[^a-z0-9.-]/gi,"-")}
+async function exportAs(fmt){
+  const data=payload();if(!data)return;
+  try{const out=await renderBlob(S,data,fmt);await saveFile(`${fileBase()}.${fmt==="jpeg"?"jpg":fmt}`,out.blob);addHistory(true)}catch(e){toast("Không xuất được tệp: "+(e.message||e))}
+}
+$("#dlPng").onclick=()=>exportAs("png");$("#dlSvg").onclick=()=>exportAs("svg");$("#dlJpg").onclick=()=>exportAs("jpeg");
+$("#copyImg").onclick=async()=>{try{const out=await renderBlob(S,payload(),"png");await navigator.clipboard.write([new ClipboardItem({"image/png":out.blob})]);toast("Đã sao chép ảnh mã QR")}catch(e){toast("Trình duyệt không cho sao chép ảnh. Hãy dùng nút Tải PNG.")}};
+$("#copyRaw").onclick=()=>copyText(payload());
+function copyText(t){if(!t)return;navigator.clipboard.writeText(t).then(()=>toast("Đã sao chép nội dung")).catch(()=>{const r=document.createRange();r.selectNodeContents($("#raw"));const s=getSelection();s.removeAllRanges();s.addRange(r);toast("Đã chọn sẵn nội dung, nhấn Ctrl+C để sao chép")})}
+$("#resetAll").onclick=()=>{S=structuredClone(DEFAULT);renderTypes();renderForm();syncDesign();update();toast("Đã đặt lại về mặc định")};
+
+/* ---------- History ---------- */
+function hist(){return store.get("qrs.hist",[])}
+async function addHistory(silent){
+  const data=payload();if(!data)return;
+  let thumb="";try{const out=await renderBlob(Object.assign({},S,{size:240}),data,"png");thumb=out.canvas.toDataURL("image/png")}catch(e){}
+  const {logo,...style}=S;
+  const item={id:Date.now(),type:S.type,values:structuredClone(S.values[S.type]||{}),style,data,thumb,ts:Date.now()};
+  let h=hist().filter(x=>x.data!==data||JSON.stringify(x.style)!==JSON.stringify(style));h.unshift(item);h=h.slice(0,30);
+  if(!store.set("qrs.hist",h)){h=h.slice(0,10);store.set("qrs.hist",h)}
+  renderHist();if(!silent)toast("Đã lưu vào lịch sử");
+}
+$("#saveHist").onclick=()=>addHistory(false);
+function renderHist(){
+  const h=hist();$("#histCount").textContent=h.length?h.length:"";
+  $("#hist").innerHTML=h.length?h.map(x=>`<div class="hcard"><img src="${x.thumb}" alt=""><div class="meta"><b>${esc(TYPES[x.type]?TYPES[x.type].label:x.type)} · ${esc(x.data.split("\n")[0].slice(0,60))}</b><small>${new Date(x.ts).toLocaleString("vi-VN")}</small><div class="row"><button class="btn sm" data-open="${x.id}" type="button">Mở lại</button><button class="btn sm" data-del="${x.id}" type="button">Xóa</button></div></div></div>`).join("")
+    :`<div class="empty">Chưa có mã nào. Mã sẽ tự lưu vào đây mỗi khi bạn tải về, hoặc bấm “Lưu vào lịch sử”.<br>Lịch sử chỉ nằm trên trình duyệt này.</div>`;
+  $$("[data-open]").forEach(b=>b.onclick=()=>{const x=hist().find(i=>i.id==b.dataset.open);if(!x)return;
+    S=Object.assign(structuredClone(DEFAULT),x.style,{logo:S.logo});S.type=x.type;S.values[x.type]=x.values;renderTypes();renderForm();syncDesign();update();show("create");toast("Đã mở lại mã")});
+  $$("[data-del]").forEach(b=>b.onclick=()=>{store.set("qrs.hist",hist().filter(i=>i.id!=b.dataset.del));renderHist()});
+}
+function restoreClear(){$("#histClearBox").innerHTML=`<button class="btn sm" id="histClear" type="button">Xóa toàn bộ</button>`;bindClear()}
+function bindClear(){$("#histClear").onclick=()=>{const box=$("#histClearBox");box.innerHTML=`<span>Xóa ${hist().length} mã đã lưu?</span><button class="btn sm pri" id="hcYes" type="button">Xóa hết</button><button class="btn sm" id="hcNo" type="button">Hủy</button>`;
+  $("#hcYes").onclick=()=>{store.set("qrs.hist",[]);renderHist();restoreClear()};$("#hcNo").onclick=restoreClear}}
+
+/* ---------- Batch ---------- */
+let batchItems=[];
+function parseBatch(){return $("#batchIn").value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map((l,i)=>{
+  let name="",data=l;const p=l.indexOf("|");
+  if(p>0&&p<60){name=l.slice(0,p).trim();data=l.slice(p+1).trim()}
+  else{const m=l.match(/^([^,]{1,60}),(.+)$/);if(m&&!/^(https?:|WIFI:|mailto:|tel:|SMSTO:|BEGIN:)/i.test(l)){name=m[1].trim().replace(/^"|"$/g,"");data=m[2].trim().replace(/^"|"$/g,"")}}
+  if(!name)name=String(i+1).padStart(3,"0");
+  return{name:noAccent(name).replace(/[^\w.-]+/g,"-").slice(0,60)||String(i+1),label:name,data}})}
+function batchCount(){const n=parseBatch().length;$("#batchCount").textContent=n?`${n} mã`:""}
+$("#batchIn").oninput=batchCount;
+$("#batchFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{$("#batchIn").value=String(fr.result).replace(/^\uFEFF/,"");batchCount()};fr.readAsText(f,"utf-8");e.target.value=""};
+$("#batchGo").onclick=async()=>{
+  if(!hasLib()){toast("Thư viện tạo mã chưa tải xong.");return}
+  const items=parseBatch().slice(0,500);if(!items.length){toast("Danh sách đang trống.");return}
+  const useLabel=$("#batchLabel").checked;batchItems=[];$("#batchZip").disabled=true;const grid=$("#batchGrid");grid.innerHTML="";
+  $("#batchGo").disabled=true;
+  const seen={};
+  for(let i=0;i<items.length;i++){
+    const it=items[i];$("#batchGo").textContent=`Đang tạo ${i+1}/${items.length}…`;
+    let nm=it.name;if(seen[nm]){nm+="-"+(++seen[nm])}else seen[nm]=1;
+    const tile=document.createElement("div");tile.className="tile";
+    try{
+      if(utf8Len(it.data)>CAP[effEcl(S)])throw new Error("quá dài");
+      const out=await renderBlob(S,it.data,"png",useLabel?it.label:null);
+      batchItems.push({name:nm+".png",blob:out.blob});
+      tile.innerHTML=`<img alt="" src="${URL.createObjectURL(out.blob)}"><span title="${esc(it.data)}">${esc(nm)}</span>`;
+    }catch(e){tile.classList.add("err");tile.innerHTML=`<span>${esc(nm)}</span><span class="muted">Lỗi: ${esc(e.message||e)}</span>`}
+    grid.appendChild(tile);if(i%5===4)await new Promise(r=>setTimeout(r,0));
+  }
+  $("#batchGo").disabled=false;$("#batchGo").textContent="Tạo lại";$("#batchZip").disabled=!batchItems.length;
+  toast(`Đã tạo ${batchItems.length} mã`);
+};
+$("#batchZip").onclick=async()=>{
+  if(typeof JSZip!=="function"){toast("Không tải được thư viện nén ZIP.");return}
+  const z=new JSZip();batchItems.forEach(b=>z.file(b.name,b.blob));
+  const blob=await z.generateAsync({type:"blob"});saveFile(`ma-qr-${batchItems.length}-tep.zip`,blob);
+};
+
+/* ---------- Scan ---------- */
+function detectType(t){
+  if(/^WIFI:/i.test(t))return"Wi‑Fi";if(/^BEGIN:VCARD/i.test(t))return"Danh thiếp";if(/^BEGIN:VEVENT/i.test(t))return"Sự kiện";
+  if(/^mailto:/i.test(t))return"Email";if(/^SMSTO:/i.test(t))return"Tin nhắn";if(/^tel:/i.test(t))return"Gọi điện";if(/^geo:/i.test(t))return"Vị trí";
+  if(/^000201/.test(t)&&/A000000727/.test(t))return"Chuyển khoản VietQR";if(/^https?:\/\//i.test(t))return"Liên kết";return"Văn bản";
+}
+function parseVietQR(t){
+  const read=s=>{const o={};let i=0;while(i+4<=s.length){const id=s.substr(i,2),l=+s.substr(i+2,2);o[id]=s.substr(i+4,l);i+=4+l}return o};
+  try{const top=read(t),m=read(top["38"]||""),acc=read(m["01"]||""),add=read(top["62"]||"");
+    const bank=BANKS.find(b=>b[0]===acc["00"]);const ok=crc16(t.slice(0,-4))===t.slice(-4);
+    return{bank:bank?bank[1]:acc["00"],bin:acc["00"],acc:acc["01"],amount:top["54"]||"",desc:add["08"]||"",ok}}catch(e){return null}
+}
+async function scanImage(file){
+  const out=$("#scanOut");out.innerHTML=`<p class="muted">Đang đọc…</p>`;
+  const url=URL.createObjectURL(file);let im;try{im=await blobToImage(file)}catch(e){out.innerHTML=`<div class="pill bad" style="margin-top:14px"><span class="dot"></span><span>Không mở được ảnh này. Hãy dùng ảnh PNG hoặc JPG.</span></div>`;return}
+  let res=null;
+  for(const max of [1400,900,500,2000]){const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height);
+    res=typeof jsQR==="function"?jsQR(d.data,c.width,c.height,{inversionAttempts:"attemptBoth"}):null;if(res)break}
+  if(!res){out.innerHTML=`<div class="decode-out"><img src="${url}" alt="Ảnh đã chọn"><div class="pill bad"><span class="dot"></span><span><b>Không tìm thấy mã QR.</b> Thử cắt ảnh sát mã hơn, chụp rõ nét và đủ sáng.</span></div></div>`;return}
+  const t=res.data,type=detectType(t);let extra="";
+  if(type==="Chuyển khoản VietQR"){const v=parseVietQR(t);if(v)extra=`<dl class="spec" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:10px"><div><dt>Ngân hàng</dt><dd>${esc(v.bank)}</dd></div><div><dt>Số tài khoản</dt><dd>${esc(v.acc||"")}</dd></div><div><dt>Số tiền</dt><dd>${v.amount?Number(v.amount).toLocaleString("vi-VN")+" đ":"Người chuyển nhập"}</dd></div><div><dt>Mã kiểm tra</dt><dd>${v.ok?"Hợp lệ":"Sai CRC"}</dd></div>${v.desc?`<div style="grid-column:1/-1"><dt>Nội dung</dt><dd>${esc(v.desc)}</dd></div>`:""}</dl>`}
+  out.innerHTML=`<div class="decode-out"><img src="${url}" alt="Ảnh đã chọn"><div style="min-width:0;display:flex;flex-direction:column;gap:10px">
+    <div class="pill ok"><span class="dot"></span><span><b>Đọc được mã QR</b> · loại: ${esc(type)} · ${utf8Len(t)} byte</span></div>
+    <pre class="mono" id="scanText" style="margin:0;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-all;font-size:13px;max-height:220px;overflow:auto">${esc(t)}</pre>${extra}
+    <div class="row"><button class="btn sm" id="scCopy" type="button">Sao chép</button>${/^https?:\/\//i.test(t)?`<a class="btn sm" href="${esc(t)}" target="_blank" rel="noopener noreferrer">Mở liên kết</a>`:""}<button class="btn sm pri" id="scRemake" type="button">Tạo lại mã này với thiết kế của tôi</button></div>
+    ${/^https?:\/\//i.test(t)?`<span class="muted" style="font-size:12px">Kiểm tra kỹ tên miền trước khi mở: <b class="mono">${esc((()=>{try{return new URL(t).hostname}catch(e){return""}})())}</b></span>`:""}</div></div>`;
+  $("#scCopy").onclick=()=>navigator.clipboard.writeText(t).then(()=>toast("Đã sao chép")).catch(()=>{const r=document.createRange();r.selectNodeContents($("#scanText"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Đã chọn sẵn, nhấn Ctrl+C")});
+  $("#scRemake").onclick=()=>{if(/^https?:\/\//i.test(t)){S.type="url";S.values.url={url:t,utm:false}}else{S.type="text";S.values.text={text:t}}renderTypes();renderForm();update();show("create");toast("Đã đưa nội dung vào trình tạo")};
+}
+const drop=$("#drop");
+$("#scanFile").onchange=e=>{const f=e.target.files[0];if(f)scanImage(f);e.target.value=""};
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f&&f.type.startsWith("image/"))scanImage(f)});
+document.addEventListener("paste",e=>{const it=[...(e.clipboardData||{}).items||[]].find(i=>i.type.startsWith("image/"));if(!it)return;e.preventDefault();show("scan");scanImage(it.getAsFile())});
+
+/* ---------- Views ---------- */
+const VIEWS=["create","batch","scan","hist"];
+function show(v){if(!VIEWS.includes(v))v="create";VIEWS.forEach(x=>{$("#v-"+x).hidden=x!==v;$(`[data-view="${x}"]`).setAttribute("aria-selected",x===v)});if(location.hash.slice(1)!==v)try{history.replaceState(null,"","#"+v)}catch(e){location.hash=v}}
+$$(".modes button").forEach(b=>b.onclick=()=>show(b.dataset.view));
+window.addEventListener("hashchange",()=>show(location.hash.slice(1)));
+
+/* ---------- Boot ---------- */
+renderTypes();renderForm();syncDesign();renderHist();bindClear();batchCount();
+show(location.hash.slice(1)||"create");
+function boot(){if(hasLib())update();else setTimeout(boot,150)}
+update();boot();
+})();
+</script>
+
+</body>
+</html>
